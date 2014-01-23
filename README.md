@@ -26,27 +26,27 @@ daurus.js will parse some types of data besides javascript files automatically. 
 
 * js
 
-** Asynchronously: Add the required url to a \<script\> element.
+  * Asynchronously: Add the required url to a \<script\> element.
 
-** Synchronously: Load with sync AJAX, add the response text to a \<script\> tag.
+  * Synchronously: Load with sync AJAX, add the response text to a \<script\> tag.
 
 * css
 
-** Asynchronously: Add the required url to a \<link\> element, using an inner \<img\> tag to implement onload callback.
+  * Asynchronously: Add the required url to a \<link\> element, using an inner \<img\> tag to implement onload callback.
 
-** Synchronously: Load with sync AJAX, add the response text to a \<style\> tag.
+  * Synchronously: Load with sync AJAX, add the response text to a \<style\> tag.
 
 * HTML
 
-** Nothing but load the html with ajax, the html will be parse to an Array of HTMLElement before it pass to the request function.
+  * Nothing but load the html with ajax, the html will be parse to an Array of HTMLElement before it pass to the request function.
 
 * JSON
 
-** Same as HTML but parse the JSON this time.
+  * Same as HTML but parse the JSON this time.
 
 * external
 
-** Sure you can require an external url as a module but daurus.js just put it into an \<iframe\> element. NOT SUPPOSED TO USED
+  * Sure you can require an external url as a module but daurus.js just put it into an \<iframe\> element. NOT SUPPOSED TO USED
 
 ### Url resolves
 
