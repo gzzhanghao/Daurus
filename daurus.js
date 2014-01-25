@@ -1,82 +1,89 @@
-(function() {
+/**
+ * @preserve Daurus.js 1.0.0 | @zh | WTFPL
+ */
+;(function () {
 
   'use strick';
 
-  // configuration
-  var config = {
-    'debug': false
-  };
+  /** version */
+  var version = '1.0.0';
 
-  // global variables for moduling
-  var modules = {}, loading = [], waiting = [];
+  /** Used to configuring paths and other configurations */
+  var config = {};
 
-  // static variables
-  // specific extension name supports
-  var supportTypes = 'js json html css'.split(' '),
-  // images extension names
-      imageTypes = 'jpg jpeg png gif'.split(' '),
-  // node to append <link> and <script> default id body
-      injectNode = document.getElementsByTagName('body')[0],
-  // mime type support to specific module type
-      mime = {
-        'js': /^(application|text)\/(x-)?javascript$/,
-        'json': /^(application|text)\/(x-)?json$/,
-        'html': /^text\/html$/,
-        'css': /^text\/css$/,
-        'png': /^image\/png$/,
-        'gif': /^image\/gif$/,
-        'jpeg': /^image\/p?jpeg$/,
-        'img': /^image\//
-      },
-  // equals to location.origin, supports for ie8-
-      originURL = [
-          window.location.protocol,
-          '//', window.location.hostname, 
-          (window.location.port ? '\:' + window.location.port: '')
-        ].join('');
+  /** Storaging modules defined */
+  var modules = {};
 
+  /** Records modules in loading state */
+  var loading = [];
 
-  // Object:           console
-  // Description:      patch console bug for ie
-  var console = (function() {
-    if ('undefined' === typeof window.console) {
-      var console = {};
-      console.log = console.error = console.info = console.debug = console.warn = console.trace = console.dir = console.dirxml = console.group = console.groupEnd = console.time = console.timeEnd = console.assert = console.profile = function() {};
-      return console;
-    }
-    return window.console;
-  })();
+  /** Modules dependent on modules loading */
+  var waiting = [];
 
-  // Object:           browser
-  // Description:      highest version number of ie or 11 for other browsers
-  var browser = (function () {
-    var ieVersion = navigator.userAgent.match(/MSIE(\d+)/);
-    if (!ieVersion) {
-      ieVersion = 11;
+  /** Extensions that daurus.js can handle with besides images type */
+  var supportTypes = 'js json html css'.split(' ');
+
+  /** Images extensions */
+  var imageTypes = 'jpg jpeg png gif'.split(' ');
+
+  /** Node to append <link> and <script> */
+  var injectNode = document.getElementsByTagName('head')[0];
+
+  /** Mime types supports to specific module type */
+  var mime = {
+      'js': /^(application|text)\/(x-)?javascript$/,
+      'json': /^(application|text)\/(x-)?json$/,
+      'html': /^text\/html$/,
+      'css': /^text\/css$/,
+      'png': /^image\/png$/,
+      'gif': /^image\/gif$/,
+      'jpeg': /^image\/p?jpeg$/,
+      'img': /^image\//
+    };
+
+  /** Location.origin supports for ie8- */
+  var originURL = location.origin || [window.location.protocol, '//', window.location.hostname, (window.location.port ? '\:' + window.location.port: '')].join('');
+
+  /** Console object patch for low version of ie */
+  var console;
+
+  /** Browsers' supports level, version for ie and 11 for others */
+  var browser;
+
+  (function () {
+    if (typeof window.console == 'undefined') {
+      // create a console with empty methods if window.console not defined
+      console = {};
+      console.log = console.error = console.info = console.debug = console.warn = console.trace = console.dir = console.dirxml = console.group = console.groupEnd = console.time = console.timeEnd = console.assert = console.profile = function () {};
     } else {
-      ieVersion = ieVersion[1];
+      console = window.console;
     }
-    return ieVersion;
+
+    // get ie's version from UA.
+    var ieVersion = navigator.userAgent.match(/MSIE(\d+)/);
+    browsers = ieVersion ? ieVersion[1] : 11;
+
   })();
 
+  /*--------------------------------------------------------------------------*/
 
-  // Functions begins here
-
-  // Function:         jsonParse
-  // Description:      parse json for old browsers
-  // Arguments:        json string
-  // Returns:          javascript object
-  // From:             https://github.com/douglascrockford/JSON-js/blob/master/json_parse.js
-  var jsonParse = (function() {
-    if ('undefined' !== typeof JSON && 'undefined' !== typeof JSON.parse) {
+  /**
+   * Parse a JSON string to Object as JSON.parse does
+   * @private
+   * @parm {String} JSONString String to be parsed
+   * @returns {Object} The object parsed from the string
+   */
+  var jsonParse = (function () {
+    // From: https://github.com/douglascrockford/JSON-js/blob/master/json_parse.js
+    if (typeof JSON != 'undefined') {
       return JSON.parse;
     }
     var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g;
-    return function(text, reviver) {
+    return function (text, reviver) {
       var j;
       function walk(holder, key) {
         var k, v, value = holder[key];
-        if (value && typeof value === "object") {
+        if (value && typeof value == "object") {
           for (k in value) {
             if (Object.prototype.hasOwnProperty.call(value, k)) {
               v = walk(value, k);
@@ -93,13 +100,13 @@
       text = String(text);
       cx.lastIndex = 0;
       if (cx.test(text)) {
-        text = text.replace(cx, function(a) {
+        text = text.replace(cx, function (a) {
           return "\\u" + ("0000" + a.charCodeAt(0).toString(16)).slice(-4);
         });
       }
       if (/^[\],:{}\s]*$/.test(text.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, "@").replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, "]").replace(/(?:^|:|,)(?:\s*\[)+/g, ""))) {
         j = eval("(" + text + ")");
-        return typeof reviver === "function" ? walk({
+        return typeof reviver == "function" ? walk({
           "":j
         }, "") :j;
       }
@@ -107,16 +114,18 @@
     };
   })();
 
-
-  // Function:         convertToArray
-  // Description:      conver an array-like object to array
-  // Usage:            convertToArray.call(object)
-  var convertToArray = function() {
+  /**
+   * Convert an array-like object to an Array object
+   * @private
+   * @usage convertToArray.call(object)
+   * @returns {Array} Array object convert from input
+   */
+  var convertToArray = function (object) {
     try {
-      Array.prototype.slice.call(document.documentElement);
+      Array.prototype.slice.call(object);
       convertToArray = Array.prototype.slice;
     } catch (a) {
-      convertToArray = function() {
+      convertToArray = function () {
         var b = this.length, c = [];
         if (this.charAt) {
           for (var a = 0; b > a; a++) {
@@ -133,123 +142,141 @@
     return convertToArray.call(this);
   };
 
-
-  // Function:         indexOf
-  // Description:      patch indexOf in ie8-
-  // Usage:            indexOf.call(array, needle);
-  var indexOf = function(needle) {
-    if ('function' === typeof Array.prototype.indexOf) {
+  /**
+   * Get the index of a value in an Array
+   * @private
+   * @usage indexOf.call(array, value)
+   * @returns {Integer} index of the value in the Array
+   */
+  var indexOf = function (value) {
+    if ('function' == typeof Array.prototype.indexOf) {
       indexOf = Array.prototype.indexOf;
     } else {
-      indexOf = function(needle) {
+      indexOf = function (value) {
         for (var i = 0; i < this.length; i++) {
-          if (this[i] === needle) {
+          if (this[i] === value) {
             return i;
           }
         }
         return -1;
       };
     }
-    return indexOf.call(this, needle);
+    return indexOf.call(this, value);
   };
 
+  /**
+   * Parse a string to a module with specific type
+   * @private
+   * @parm {String} id Module's identifier
+   * @parm {String} type Module's extension name
+   * @parm {String} string Module's definition string
+   * @parm {Boolean} async Whether the string should be parsed synchronously
+   * @return {Object} Module parsed from the string
+   */
+  var parseModuleString = function (id, type, string, async) {
 
-  // Function:         parseModuleString
-  // Description:      parse module with specific method
-  // Arguments:        module's id, module's type, module's definition
-  //                   asynchronous flag (default true)
-  var parseModuleString = function(id, type, string, async) {
-    var carrier, nodeList;
+    // HTMLElement to carry the module's definition string
+    var carrier;
 
-    // deal with data return from ajax in multiple methods
+    // handle different type of modules in specific method
     switch (type) {
       case 'js':
         if (false === async) {
-        try {
-          Function([], string).call();
-        } catch (e) {
-          console.error('In module \'' + id + '\':\n' + e.stack);
-        }
-        return modules[id];
-      } else {
-        carrier = document.createElement('script');
-        carrier.setAttribute('type', 'text/javascript');
-        document.getElementsByTagName('body')[0].appendChild(carrier);
-        if (!config.debug) {
-          carrier.innerHTML = '\n' + string + '\n';
+          try {
+            Function ([], string).call();
+          } catch (e) {
+            console.error('In module \'' + id + '\':\n' + e.stack);
+          }
+          return modules[id];
         } else {
-          carrier.setAttribute('src', id);
+          carrier = document.createElement('script');
+          carrier.setAttribute('type', 'text/javascript');
+          document.getElementsByTagName('body')[0].appendChild(carrier);
+          carrier.innerHTML = '\n' + string + '\n';
         }
-      }
-      return carrier;
+        return carrier;
 
       case 'css':
-      carrier = document.createElement('style');
-      carrier.setAttribute('type', 'text/css');
-      carrier.innerHTML = string;
-      define(id, carrier);
-      return carrier;
+        carrier = document.createElement('style');
+        carrier.setAttribute('type', 'text/css');
+        carrier.innerHTML = string;
+        define(id, carrier);
+        return carrier;
 
       case 'html':
-      carrier = document.createElement('div');
-      carrier.innerHTML = string;
-      nodeList = convertToArray.call(carrier.childNodes);
-      carrier.innerHTML = '';
-      define(id, nodeList);
-      return nodeList;
+        carrier = document.createElement('div');
+        // TODO: deal with html5 tags here
+        carrier.innerHTML = string;
+        nodeList = convertToArray.call(carrier.childNodes);
+        for (var i = 0; i < nodeList.length; i++) {
+          carrier.removeChild(nodeList[i]);
+        }
+        define(id, nodeList);
+        return nodeList;
 
       case 'jpeg': case 'png': case 'gif':
         if (browser >= 8) {
-        // data uri scheme, for ie8+
-        string = ['data:image/', type, ',', string].join('');
-        carrier = document.createElement('img');
-        carrier.setAttribute('src', string);
-        define(id, carrier);
-        return carrier;
-      } else {
-        carrier = document.createElement('img');
-        carrier.onload = function() {
+          // data uri scheme, for ie8+
+          string = ['data:image/', type, ',', string].join('');
+          carrier = document.createElement('img');
+          carrier.setAttribute('src', string);
           define(id, carrier);
-          carrier.onload = void 0;
-        };
-        carrier.setAttribute('src', id)
-        return carrier;
-      }
+          return carrier;
+        } else {
+          carrier = document.createElement('img');
+          carrier.onload = function () {
+            define(id, carrier);
+            carrier.onload = void 0;
+          };
+          carrier.setAttribute('src', id)
+          return carrier;
+        }
 
       case 'json':
-      try {
-        string = jsonParse(string);
-      } catch (e) {
-        console.warn('Unable to parse json data from \'' + id + '\'');
-      }
+        try {
+          string = jsonParse(string);
+        } catch (e) {
+          console.warn('Unable to parse json data from \'' + id + '\'');
+        }
 
       default:
-      define(id, string);
-      return string;
+        define(id, string);
+        return string;
     }
   };
 
-
-  // Function:         loadModule
-  // Description:      load module with specific methods
-  // Arguments:        module to load, async flag (sync when async === false)
-  var loadModule = function(module, async) {
-
-    // validate module's name
-    if ('string' !== typeof module) {
-      throw new Error('Unexpected module url: ' + module);
+  /**
+   * Get the extension name from mime type
+   * @private
+   * @parm {String} type Mime type to search the extension name
+   * @returns {String} Extension name for the mime type
+   */
+  var extFromMime = function (type) {
+    for (var i in mime) {
+      if (mime.hasOwnProperty(i) && type.match(mime[i])) {
+        return i;
+      }
     }
+    return '';
+  };
 
-    // variables to use
-    var carrier, request, onloadHack, contentType,
+  /**
+   * Load a module from remote
+   * @private
+   * @parm {String} url Remote URL to load the module
+   * @parm {Boolean} async Whether to load the module asynchronously
+   * @return {Object} Module loaded from the URL or null if async
+   */
+  var loadModule = function (module, async) {
 
-    // module's url extension name
-        extension = module.replace(/[#\?][\w\W]*/, '').split('.').pop();
+    // module's extension name
+    var extension = module.replace(/[#\?][\w\W]*/, '').split('.').pop(),
+        carrier;
 
     // if the module to be load is an image
     if (indexOf.call(imageTypes, extension) >= 0) {
       carrier = document.createElement('img');
-      carrier.onload = function() {
+      carrier.onload = function () {
         define(module, carrier);
         carrier.onload = void 0;
       };
@@ -263,6 +290,7 @@
     }
 
     // initial ajax request object
+    var request;
     if (window.XMLHttpRequest) {
       request = new XMLHttpRequest();
     } else {
@@ -273,7 +301,7 @@
     if (false !== async) {
 
       // load js with <script>
-      if ('js' === extension) {
+      if ('js' == extension) {
         carrier = document.createElement('script');
         carrier.setAttribute('type', 'text/javascript');
         carrier.setAttribute('src', module);
@@ -282,48 +310,38 @@
       }
       
       // load css with <link>
-      if ('css' === extension) {
+      if ('css' == extension) {
         carrier = document.createElement('link');
         carrier.setAttribute('rel', 'stylesheet');
         carrier.setAttribute('type', 'text/css');
         carrier.setAttribute('href', module);
         injectNode.appendChild(carrier);
 
+        // TODO: I hate warnings
+        /*
         // link.onload trick with <img>
-        onloadHack = document.createElement('img');
-        onloadHack.onerror = function() {
+        var onloadHack = document.createElement('img');
+        onloadHack.onerror = function () {
           define(module, carrier);
         };
         onloadHack.setAttribute('src', module)
+        */
 
+        define(module, carrier);
         return carrier;
       }
 
       // neither js nor css, load with ajax
-      request.onreadystatechange = function() {
-
-        if (4 === request.readyState) {
-
-          if ('undefined' === typeof extension) {
-
-            // try to find content type from header
-            contentType = request.getResponseHeader('Content-Type') || '';
-            for (var type in mime) {
-              if (mime.hasOwnProperty(type) && 
-                  contentType.match(mime[type])) {
-                extension = type;
-                break;
-              }
-            }
-          }
+      request.onreadystatechange = function () {
+        if (4 == request.readyState) {
+          extension = extension || extFromMime(request.getResponseHeader('Content-Type') || '');
           parseModuleString(module, extension, request.responseText);
         }
       };
     }
 
     // load module with iframe if the module comes from external website
-    if (module.match(/^\w+:\/\//) && !module.indexOf(originURL) === 0) {
-
+    if (module.match(/^\w+:\/\//) && !module.indexOf(originURL) == 0) {
       carrier = document.createElement('iframe');
       carrier.setAttribute('src', module);
       define(module, carrier);
@@ -334,30 +352,20 @@
     request.open('GET', module, false !== async);
     request.send();
 
-    // if synchronous
+    // if synchronously
     if (false === async) {
-
-      if ('undefined' === typeof extension) {
-
-        // try to get content type from header
-        contentType = request.getResponseHeader('Content-Type') || '';
-        for (var type in mime) {
-          if (mime.hasOwnProperty(type) && contentType.match(mime[type])) {
-            // mime type match
-            extension = type;
-            break;
-          }
-        }
-      }
+      extension = extension || extFromMime(request.getResponseHeader('Content-Type') || '');
       return parseModuleString(module, extension, request.responseText, false);
     }
   };
 
-
-  // Function:         urlResolve
-  // Description:      get the request module's uri base on current module
-  // Arguments:        target uri
-  // Returns:          uri reserved
+  /**
+   * Resolve the target URL from base, returns an absolute URL
+   * @private
+   * @parm {String} base The base URL
+   * @parm {String} target Target URL to be resolved
+   * @returns {String} The absolute URL resolved from base and target
+   */
   var urlResolve = function (base, target) {
 
     // config.path resovle
@@ -397,11 +405,7 @@
     target = target.match(parser);
     target.protocol = target[1];
     target.host = target[3];
-    if (target[4]) {
-      target.pathname = target[4].replace(/\/+/g, '/');
-    } else {
-      target.pathname = '';
-    }
+    target.pathname = target[4] ? target[4].replace(/\/+/g, '/') : '';
     target.search = target[5];
 
     // "protocol://hostname/path/name?query"
@@ -418,9 +422,7 @@
     // "/path/name?query" or "path/name?query"
     target.host = base.host;
     if (target.pathname) {
-
       if (!target.pathname.match(/^\//)) {
-        
         // "path/name?query"
         if (base.pathname) {
           base.pathname = base.pathname.split('/');
@@ -429,55 +431,55 @@
         }
       }
 
-      target[0] = ('/' + target[0]).replace(/\/+/g, '/')
-          .replace(/[^\?#]*/, function (m) {
-            m = m.split('/');
-            var tmp = [];
-          for (var i = 0; i < m.length; i++) {
-            switch (m[i]) {
-              case '..':
-              tmp.pop();
-              case '.':
-              break;
-              default:
-              tmp.push(m[i]);
-            }
+      // normalize url
+      target[0] = ('/' + target[0]).replace(/\/+/g, '/').replace(/[^\?#]*/, function (m) {
+        m = m.split('/');
+        var tmp = [];
+        for (var i = 0; i < m.length; i++) {
+          switch (m[i]) {
+            case '..':
+            tmp.pop();
+            case '.':
+            break;
+            default:
+            tmp.push(m[i]);
           }
-          return tmp.join('/');
-          });
+        }
+        return tmp.join('/');
+      });
       
       return target.protocol + '//' + target.host + target[0];
     }
 
     // ""
     target.pathname = base.pathname;
-    if (!target.search) {
-      target.search = base.search || location.search;
-    }
-    return [target.protocol, '//', target.host, 
-            target.pathname, target.search].join('');
+    target.search = target.search || base.search || location.search;
+    return [target.protocol, '//', target.host, target.pathname, target.search].join('');
   };
 
+  /*--------------------------------------------------------------------------*/
 
-  // Function:         define
-  // Description:      function to define a module in AMD standard
-  // Arguments:        [id, ][dependencies, ]definition
+  /**
+   * Define a module as AMD defined
+   * @exposed
+   * @parm {String} id The identifier of the module
+   * @parm {Array} dependencies Modules this module dependent on
+   * @parm {Object} definition Modules definition
+   */
   var define = function () {
-
     // validating arguments.length
     if (arguments.length > 3) {
       throw new Error('Unexpected length of arguments.');
     }
 
-    // variables to use
     var id, dependencies, 
-
-      // handling arguments
+    // handling arguments
         args = convertToArray.call(arguments),
-      // definition is always the last argument
+    // definition is always the last argument
         definition = args.pop();
     // get id if args[0] is a string
-    if ('string' === typeof args[0]) {
+    if (typeof args[0] == 'string') {
+      // every modules here is identified with an absolute url
       id = urlResolve('', args.shift());
     }
     // and dependencies remains
@@ -489,29 +491,23 @@
 
     // handling dependencies
     if (dependencies instanceof Array) {
-
-      // record missing modules
+      // missing modules
       var miss = [], missCount = 0;
-
       for (var i = 0; i < dependencies.length; i++) {
-
         dependencies[i] = urlResolve(id || '', dependencies[i]);
-
         if (modules.hasOwnProperty(dependencies[i])) {
           // if dependent module exists join it to argument list
           args.push(modules[dependencies[i]]);
-
         } else {
           // record dependent module in miss list
           miss.push(dependencies[i]);
-
           // handling after dependent module defined
           waiting[dependencies[i]] = waiting[dependencies[i]] || [];
-          waiting[dependencies[i]].push(function() {
+          waiting[dependencies[i]].push(function () {
             missCount--;
-            if (0 === missCount) {
-              // if all dependencies complete, redefine module
-              if ('undefined' !== typeof id) {
+            if (0 == missCount) {
+              // if all dependencies load, redefine module
+              if (typeof id != 'undefined') {
                 define(id, dependencies, definition);
               } else {
                 define(dependencies, definition);
@@ -537,15 +533,9 @@
     // define module factory and record it
     if (definition instanceof Function) {
       var module = {exports: {}}, exports = module.exports;
-      args = args.concat([require(id), exports, module]);
-      try {
-        definition = definition.apply(definition, args) || 
-                     module.exports;
-      } catch (h) {
-        console.error(h.stack);
-      }
+      definition = definition.apply(definition, args.concat([require(id), exports, module])) || module.exports;
     }
-    if ('string' === typeof id) {
+    if ('string' == typeof id) {
       modules[id] = definition;
     }
 
@@ -555,7 +545,7 @@
       loading.splice(i, 1);
     }
 
-    // handling modules waiting for this module
+    // redefine modules waiting for this module
     if (waiting[id] instanceof Array) {
       for (var i = 0; i < waiting[id].length; i++) {
         waiting[id][i].apply();
@@ -564,54 +554,71 @@
     }
   };
 
-
-  // Function:         require
-  // Description:      factory to build require function in base url of id
-  // Arguments:        base url
-  // Returns:          require function
+  /**
+   * build the require function as AMD defined
+   * @private
+   * @parm {String} id Require's base url
+   * @returns {Function} The require function for current module
+   */
   var require = function (id) {
+
+    /**
+     * Require function as AMD defined
+     * @exposed as module
+     * @parm {String | Array} request Request modules' id
+     * @parm {Function} callback Callback function when module is load
+     * @returns {Object} Modules loaded or void 0 with callback
+     */
     return function (request, callback) {
-      if ('string' === typeof request) {
+      if ('string' == typeof request) {
         request = [request];
       }
       for (var i = 0; i < request.length; i++) {
         request[i] = urlResolve(id || '', request[i]);
       }
-      if (callback) {
+      if (typeof callback != 'undefined') {
         define(request, callback);
-      } else {
-        var args = [];
-        for (var i = 0; i < request.length; i++) {
-          if (modules.hasOwnProperty(request[i])) {
-            args.push(modules[request[i]]);
-          } else {
-            args.push(loadModule(request[i], false));
-          }
-        }
-        if (request.length === 1) {
-          args = args[0];
-        }
-        return args;
       }
+      var args = [];
+      for (var i = 0; i < request.length; i++) {
+        if (modules.hasOwnProperty(request[i])) {
+          args.push(modules[request[i]]);
+        } else if (typeof callback == 'undefined') {
+          args.push(loadModule(request[i], false));
+        } else {
+          args.push(void 0);
+        }
+      }
+      if (request.length == 1) {
+        args = args[0];
+      }
+      return args;
     };
   };
 
-
-  // Function:         config
-  // Description:      set / get config
-  // Arugments:        new config object to be set or nothing
-  // Returns:          the latest config
-  define.config = function (set) {
-    if (set) {
-      config = set;
+  /**
+   * Configure define function
+   * @parm {Object} configuration Configuration to be set
+   * @returns {Object} The newest configuration
+   */
+  define.config = function (configuration) {
+    if (configuration) {
+      config = configuration;
+    }
+    if (config.path instanceof Array) {
+      for (var i = 0; i < config.paths.length; i++) {
+        config.paths[i] = urlResolve('', config.paths[i]);
+      }
     }
     return config;
   };
 
+  /*--------------------------------------------------------------------------*/
+
   // identifiers
   define.amd = define.daurus = true;
 
-  // put define as global variable
+  // expose define
   window.define = define;
 
 })();
